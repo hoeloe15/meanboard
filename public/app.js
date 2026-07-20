@@ -12,21 +12,27 @@ async function api(url, options) {
 }
 const taskUrl = id => `/api/tasks/${encodeURIComponent(id)}`;
 
-function age(created) {
-  const then = new Date((created || '').replace(' ', 'T')).getTime();
-  if (!Number.isFinite(then)) return '';
-  const minutes = Math.max(0, Math.floor((Date.now() - then) / 60000));
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
-  return `${Math.floor(minutes / 1440)}d`;
+function checks(body) {
+  const marks = (body || '').match(/^\s*[-*+]\s+\[[ xX]\]/gm) || [];
+  return { done: marks.filter(m => /\[[xX]\]/.test(m)).length, total: marks.length };
 }
 
 function card(task) {
   const node = document.createElement('article');
   node.className = 'card'; node.draggable = statuses.includes(task.status); node.tabIndex = 0; node.dataset.id = task.id;
-  const title = document.createElement('h3'), meta = document.createElement('span');
-  title.textContent = task.title; meta.className = 'age'; meta.textContent = age(task.created);
-  node.append(title, meta);
+  const title = document.createElement('h3');
+  title.textContent = task.title;
+  node.append(title);
+  const { done, total } = checks(task.body);
+  if (total) {
+    const row = document.createElement('div'); row.className = 'checks';
+    const track = document.createElement('span'); track.className = 'track';
+    const bar = document.createElement('span'); bar.className = 'fill'; bar.style.width = `${Math.round(done / total * 100)}%`;
+    track.append(bar);
+    const label = document.createElement('span'); label.className = 'ratio'; label.textContent = `${done}/${total}`;
+    row.append(track, label);
+    node.append(row);
+  }
   node.onclick = () => showTask(task);
   node.onkeydown = event => { if (event.key === 'Enter') showTask(task); };
   node.ondragstart = event => { event.dataTransfer.setData('text/plain', task.id); node.classList.add('dragging'); };
@@ -36,6 +42,8 @@ function card(task) {
 
 function render() {
   const known = new Set(statuses);
+  const before = new Map();
+  for (const node of board.querySelectorAll('.card')) before.set(node.dataset.id, node.getBoundingClientRect());
   for (const section of document.querySelectorAll('.column')) {
     const status = section.dataset.status;
     let items = status ? tasks.filter(task => task.status === status) : tasks.filter(task => !known.has(task.status));
@@ -47,16 +55,33 @@ function render() {
   const odd = tasks.filter(task => !known.has(task.status)).length;
   document.querySelector('#unknown').hidden = !odd;
   document.querySelector('#archive-all').hidden = !tasks.some(task => task.status === 'done');
+  document.querySelector('.column.review').classList.toggle('alive', tasks.some(task => task.status === 'review'));
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (const node of board.querySelectorAll('.card')) {
+      const prev = before.get(node.dataset.id);
+      if (!prev) { if (before.size) node.classList.add('enter'); continue; }
+      const now = node.getBoundingClientRect();
+      const dx = prev.left - now.left, dy = prev.top - now.top;
+      if (dx || dy) node.animate(
+        [{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }],
+        { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+  }
 }
 
+let loading = null, loadQueued = false;
 async function load() {
-  const openId = dialog.open && current?.id;
-  const data = await api('/api/tasks'); tasks = data.tasks; repo = data.repo;
-  document.querySelector('#repo').textContent = repo; document.title = `${repo} · meanboard`; render();
-  if (openId) {
-    const task = tasks.find(item => item.id === openId);
-    if (task) showTask(task, editing); else dialog.close();
-  }
+  if (loading) { loadQueued = true; return loading; }
+  loading = (async () => {
+    const openId = dialog.open && current?.id;
+    const data = await api('/api/tasks'); tasks = data.tasks; repo = data.repo;
+    document.querySelector('#repo').textContent = repo; document.title = `${repo} · meanboard`; render();
+    if (openId) {
+      const task = tasks.find(item => item.id === openId);
+      if (task) showTask(task, editing); else dialog.close();
+    }
+  })();
+  try { await loading; } finally { loading = null; if (loadQueued) { loadQueued = false; load().catch(console.error); } }
 }
 
 function escapeHtml(value) { return value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
@@ -68,33 +93,55 @@ function inline(text) {
 }
 function markdown(source) {
   const lines = source.replace(/\r\n/g, '\n').split('\n'), out = [];
-  let fence = false, code = [], list = '';
+  let fence = false, code = [], list = '', box = 0;
   const closeList = () => { if (list) out.push(`</${list}>`); list = ''; };
   for (const line of lines) {
     if (/^```/.test(line)) { if (fence) { out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`); code = []; } fence = !fence; continue; }
     if (fence) { code.push(line); continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { closeList(); out.push('<hr>'); continue; }
     const heading = line.match(/^(#{1,6})\s+(.+)$/), item = line.match(/^\s*(?:([-*+])|(\d+)\.)\s+(.+)$/);
     if (heading) { closeList(); const n = heading[1].length; out.push(`<h${n}>${inline(heading[2])}</h${n}>`); }
     else if (item) { const kind = item[2] ? 'ol' : 'ul'; if (list !== kind) { closeList(); list = kind; out.push(`<${kind}>`); }
-      let value = item[3], box = ''; const check = value.match(/^\[([ xX])\]\s*(.*)$/);
-      if (check) { box = check[1] === ' ' ? '☐ ' : '☑ '; value = check[2]; } out.push(`<li>${box}${inline(value)}</li>`); }
+      const check = item[1] && item[3].match(/^\[([ xX])\]\s*(.*)$/);
+      if (check) out.push(`<li class="check"><label><input type="checkbox" data-check="${box++}"${check[1] === ' ' ? '' : ' checked'}><span>${inline(check[2])}</span></label></li>`);
+      else out.push(`<li>${inline(item[3])}</li>`); }
     else { closeList(); if (line.trim()) out.push(`<p>${inline(line)}</p>`); }
   }
   if (fence) out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`); closeList(); return out.join('');
 }
 
+async function toggleCheck(n) {
+  const lines = (current.body || '').split('\n');
+  let fence = false, seen = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^```/.test(lines[i])) { fence = !fence; continue; }
+    if (fence) continue;
+    const match = lines[i].match(/^(\s*[-*+]\s+\[)([ xX])(\].*)$/);
+    if (match && ++seen === n) { lines[i] = match[1] + (match[2] === ' ' ? 'x' : ' ') + match[3]; break; }
+  }
+  try { await patch(current.id, { body: lines.join('\n') }); } catch (error) { alert(error.message); }
+}
+
 function showTask(task, preserveEdit = false) {
+  if (current?.id !== task.id) document.querySelector('#note-form input').value = '';
   current = task; document.querySelector('#task-title').textContent = task.title;
   const select = document.querySelector('#task-status');
   select.replaceChildren(...statuses.map(status => new Option(labels[status], status)));
   if (!statuses.includes(task.status)) select.append(new Option(`? ${task.status}`, task.status));
-  select.value = task.status; document.querySelector('#archive').hidden = task.status !== 'done';
+  select.value = task.status;
+  document.querySelector('#status-pill').dataset.status = task.status;
+  document.querySelector('#task-file').textContent = `${task.id}.md`;
+  document.querySelector('#task-created').textContent = task.created ? `created ${task.created}` : '';
+  document.querySelector('#archive').hidden = task.status !== 'done';
   view.innerHTML = markdown(task.body || '');
   if (!(preserveEdit && editing)) setEditing(false);
   if (!dialog.open) dialog.showModal();
 }
+let editBase = null;
 function setEditing(value) {
   editing = value; view.hidden = value; editor.hidden = !value; document.querySelector('#edit').hidden = value;
+  document.querySelector('#note-form').hidden = value;
+  editBase = value ? current.body : null;
   if (value) { document.querySelector('#raw').value = `# ${current.title}\n${current.body}`; document.querySelector('#raw').focus(); }
 }
 async function patch(id, body) { await api(taskUrl(id), { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify(body) }); await load(); }
@@ -110,10 +157,27 @@ for (const section of document.querySelectorAll('.column[data-status]')) {
   section.ondrop = async event => { event.preventDefault(); section.classList.remove('drop'); const id = event.dataTransfer.getData('text/plain');
     const task = tasks.find(item => item.id === id); if (task && task.status !== section.dataset.status) try { await patch(id, { status:section.dataset.status }); } catch (error) { alert(error.message); } };
 }
+view.onchange = event => { if (event.target.dataset.check !== undefined) toggleCheck(Number(event.target.dataset.check)); };
+document.querySelector('#note-form').onsubmit = async event => {
+  event.preventDefault();
+  const input = event.currentTarget.querySelector('input'), text = input.value.trim();
+  if (!text) return;
+  const p = n => String(n).padStart(2, '0'), d = new Date();
+  const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  const body = `${(current.body || '').replace(/\s+$/, '')}\n\n---\n**${stamp}** — ${text}\n`;
+  try { await patch(current.id, { body }); input.value = ''; } catch (error) { alert(error.message); }
+};
+dialog.onclick = event => {
+  const box = dialog.getBoundingClientRect();
+  if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) dialog.close();
+};
+dialog.addEventListener('close', () => { document.querySelector('#note-form input').value = ''; });
 document.querySelector('#close').onclick = () => dialog.close();
 document.querySelector('#edit').onclick = () => setEditing(true);
 document.querySelector('#cancel').onclick = () => setEditing(false);
 document.querySelector('#save').onclick = async () => {
+  if (editBase !== null && current.body !== editBase &&
+    !confirm('This task changed on disk while you were editing. Overwrite those changes?')) return;
   const raw = document.querySelector('#raw').value, match = /^# (.*?)(?:\r?\n|$)/m.exec(raw);
   const title = match?.[1].trim() || current.title, body = match ? raw.slice(match.index + match[0].length) : raw;
   try { await patch(current.id, { title, body }); setEditing(false); } catch (error) { alert(error.message); }
@@ -124,9 +188,15 @@ document.querySelector('#archive').onclick = async () => { if (!confirm(`Archive
 document.querySelector('#archive-all').onclick = async () => { const done = tasks.filter(task => task.status === 'done'); if (!confirm(`Archive ${done.length} done task${done.length === 1 ? '' : 's'}?`)) return;
   try { await Promise.all(done.map(task => api(`${taskUrl(task.id)}/archive`, { method:'POST' }))); await load(); } catch (error) { alert(error.message); } };
 
+// Browsers only unlock audio after a user gesture; grab a context on the first one.
+window.addEventListener('pointerdown', () => {
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if (Context && !audio) { audio = new Context(); audio.resume(); }
+}, { once: true, capture: true });
+
 function chime() {
-  const Audio = window.AudioContext || window.webkitAudioContext; if (!Audio) return;
-  audio ||= new Audio(); audio.resume(); const now = audio.currentTime;
+  const Context = window.AudioContext || window.webkitAudioContext; if (!Context) return;
+  audio ||= new Context(); audio.resume(); const now = audio.currentTime;
   [[now, 660], [now + .14, 880]].forEach(([at, hz]) => { const oscillator = audio.createOscillator(), gain = audio.createGain(); oscillator.frequency.value = hz;
     gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(.12, at + .015); gain.gain.exponentialRampToValueAtTime(.0001, at + .18);
     oscillator.connect(gain).connect(audio.destination); oscillator.start(at); oscillator.stop(at + .2); });

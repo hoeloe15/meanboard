@@ -89,12 +89,17 @@ Five columns: **Draft · Open · In Progress · Review · Done**, in that order.
 Header: repo name, small live-connection dot (SSE state), notification-permission
 button (only shown until granted).
 
-- Cards: title + relative age ("3h", "2d"). Click → overlay with the body
-  rendered by a tiny built-in markdown-lite renderer (headings, bold, italic,
-  inline code, code fences, lists, `- [ ]` checkboxes rendered as ☐/☑ —
-  ~50 lines, no library) + an Edit toggle exposing raw markdown in a textarea
-  (save = PATCH title stays derived from H1), status dropdown, Archive button
-  (only for `done`).
+- Cards: title, plus a thin checklist progress bar + `done/total` when the
+  body has `- [ ]` items. Click → overlay with the body rendered by a tiny
+  built-in markdown-lite renderer (headings, bold, italic, inline code, code
+  fences, lists, `---` rules — ~50 lines, no library). `- [ ]` items render
+  as real checkboxes; ticking one flips the marker in the file. Overlay also
+  has: a status pill (colored dot + select), the task filename and created
+  date in monospace, an Edit toggle exposing raw markdown in a textarea
+  (save = PATCH, title stays derived from H1; warn before overwriting a body
+  that changed on disk mid-edit), a note input that appends
+  `---` + `**timestamp** — text` to the body, and an Archive button (only
+  for `done`).
 - Drag-and-drop cards between columns (HTML5 DnD) → PATCH status. The overlay
   status dropdown is the fallback.
 - "+ Add" affordance at the top of the Draft column: title input, optional body
@@ -110,10 +115,13 @@ button (only shown until granted).
   3. `Notification` API toast ("<repo>: <task title> ready for review") when
      permission granted — this is what reaches the Windows taskbar,
   4. Review column header pulses briefly.
-- Design: dark, quiet, information-dense but calm. System font stack, one
-  accent color for Review alerts. Subtle column tints. No frameworks, no
-  animation beyond the pulse/flash. Must look intentional, not bootstrap-y.
-  Light theme not required for v1.
+- Design: dark, quiet, information-dense but calm. System font stack; the
+  five status hues are the identity (mono uppercase column labels in their
+  hue); metadata in monospace. Motion is meaningful and restrained: cards
+  FLIP-glide between columns when a status changes, the Review column
+  breathes softly while occupied, plus the alert pulse/flash. All motion
+  respects `prefers-reduced-motion`. No frameworks. Must look intentional,
+  not bootstrap-y. Light theme not required for v1.
 
 ## `.board/README.md` written by `init` (agent protocol)
 

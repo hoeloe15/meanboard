@@ -15,7 +15,7 @@
   <main id="board" aria-label="Kanban board">
     <section class="column draft" data-status="draft">
       <header><h2>Draft</h2><span class="count">0</span></header>
-      <details class="add"><summary>＋ Add</summary>
+      <details class="add"><summary>＋ New task</summary>
         <form id="add-form"><input name="title" aria-label="Task title" placeholder="Task title" required>
           <textarea name="body" aria-label="Task body" placeholder="Optional notes" rows="3"></textarea>
           <button>Create draft</button></form>
@@ -29,9 +29,13 @@
   </main>
   <dialog id="task-dialog">
     <div class="dialog-head"><h2 id="task-title"></h2><button id="close" class="icon" aria-label="Close">×</button></div>
-    <div class="task-tools"><label>Status <select id="task-status"></select></label><span class="spacer"></span>
+    <div class="task-tools">
+      <span class="status-pill" id="status-pill"><span class="status-dot"></span><select id="task-status" aria-label="Status"></select></span>
+      <span class="meta" id="task-file"></span><span class="meta" id="task-created"></span><span class="spacer"></span>
       <button id="edit" class="quiet">Edit</button><button id="archive" class="danger" hidden>Archive</button></div>
     <article id="task-view" class="markdown"></article>
+    <form id="note-form"><input name="note" placeholder="Write a note — it's appended to the task file" aria-label="Write a note">
+      <button>Add note</button></form>
     <div id="task-edit" hidden><textarea id="raw" aria-label="Raw task markdown"></textarea>
       <div class="edit-actions"><button id="cancel" class="quiet">Cancel</button><button id="save">Save</button></div></div>
   </dialog>
