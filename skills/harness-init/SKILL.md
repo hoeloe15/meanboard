@@ -44,7 +44,8 @@ stack — this is a method, not a paste.
 4. **PR-only flow with branch protection**, even solo. Main is never red.
 5. **Cross-model review** where available (e.g. Codex review gate): the model that wrote the
    code is its own worst reviewer; disagreement between models is signal.
-6. **Task board** — run `meanboard init` (skip if the CLI is unavailable) and add a short
+6. **Task board** — run `meanboard init` (one-time install: `npm i -g github:hoeloe15/meanboard`,
+   or run directly via `npx github:hoeloe15/meanboard`; skip if unavailable) and add a short
    "Task board" section to AGENTS.md: tasks are markdown files in `.board/`, frontmatter
    `status:` is the only state (draft → open → in-progress → review → done), protocol in
    `.board/README.md`. Drafts get enriched via the `board-enrich` skill before agents may
