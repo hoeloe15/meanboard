@@ -6,7 +6,7 @@ It has no dependencies or build step and runs on Node.js 18 or newer.
 ## Install
 
 From a clone, run `npm link`. You can also run it directly from GitHub with
-`npx github:OWNER/meanboard` (replace `OWNER` with the repository owner).
+`npx github:hoeloe15/meanboard`.
 
 ## Use
 

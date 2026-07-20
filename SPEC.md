@@ -81,7 +81,7 @@ enriched.
   not just API calls. Use `fs.watch` on the board dir, debounced ~150ms.
   Send an SSE comment ping every 25s to keep the connection alive.
 - Bind to 127.0.0.1 only. Sanitize `:id` (reject `/`, `\`, `..`) — no path
-  traversal. No caching headers games: just `no-store` on the API.
+  traversal. No caching-header games: just `no-store` on the API.
 
 ## UI (single page)
 
