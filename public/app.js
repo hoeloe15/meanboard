@@ -100,8 +100,8 @@ function setEditing(value) {
 async function patch(id, body) { await api(taskUrl(id), { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify(body) }); await load(); }
 
 document.querySelector('#add-form').onsubmit = async event => {
-  event.preventDefault(); const form = new FormData(event.currentTarget);
-  try { await api('/api/tasks', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:form.get('title'), body:form.get('body') }) }); event.currentTarget.reset(); event.currentTarget.closest('details').open = false; await load(); }
+  event.preventDefault(); const form = event.currentTarget, data = new FormData(form);
+  try { await api('/api/tasks', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:data.get('title'), body:data.get('body') }) }); form.reset(); form.closest('details').open = false; await load(); }
   catch (error) { alert(error.message); }
 };
 for (const section of document.querySelectorAll('.column[data-status]')) {
