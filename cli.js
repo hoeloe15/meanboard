@@ -50,17 +50,38 @@ async function main() {
   const tasks = await listTasks(boardDir);
   const counts = Object.fromEntries(STATUSES.map(s => [s, tasks.filter(t => t.status === s).length]));
   const server = await createServer({ boardDir, repo });
-  server.on('error', error => {
-    if (error.code === 'EADDRINUSE') console.error(`meanboard: port ${opts.port} is already in use; choose another with --port <n>`);
-    else console.error(`meanboard: ${error.message}`);
-    process.exitCode = 1;
-  });
-  server.listen(opts.port, '127.0.0.1', () => {
-    const url = `http://127.0.0.1:${opts.port}`;
-    console.log(`${repo} — ${url}`);
-    console.log(STATUSES.map(s => `${s}: ${counts[s]}`).join(' · '));
-    if (opts.open) autoOpen(url);
-  });
+  const listen = (port, triesLeft) => {
+    server.removeAllListeners('listening');
+    server.once('error', async error => {
+      if (error.code !== 'EADDRINUSE') { console.error(`meanboard: ${error.message}`); server.close(); process.exitCode = 1; return; }
+      if (await isSameBoard(port, boardDir)) {
+        const url = `http://127.0.0.1:${port}`;
+        console.log(`Board for ${repo} is already running — ${url}`);
+        if (opts.open) autoOpen(url);
+        server.close(); return;
+      }
+      if (triesLeft > 0) return listen(port + 1, triesLeft - 1);
+      console.error(`meanboard: no free port in ${opts.port}-${port}; pick one with --port <n>`);
+      server.close(); process.exitCode = 1;
+    });
+    server.listen(port, '127.0.0.1', () => {
+      const url = `http://127.0.0.1:${port}`;
+      if (port !== opts.port) console.log(`Port ${opts.port} was taken by something else — using ${port}.`);
+      console.log(`${repo} — ${url}`);
+      console.log(STATUSES.map(s => `${s}: ${counts[s]}`).join(' · '));
+      if (opts.open) autoOpen(url);
+    });
+  };
+  listen(opts.port, 20);
+}
+
+async function isSameBoard(port, boardDir) {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(1000) });
+    if (!res.ok) return false;
+    const health = await res.json();
+    return health.app === 'meanboard' && health.dir === boardDir;
+  } catch { return false; }
 }
 
 main().catch(error => { console.error(`meanboard: ${error.message}`); process.exitCode = 1; });

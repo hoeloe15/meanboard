@@ -17,7 +17,9 @@ meanboard
 ```
 
 The board opens at `http://127.0.0.1:4949`. Use `--port <n>`, `--dir <path>`,
-or `--no-open` when needed. `meanboard init` creates `.board/README.md`; that
+or `--no-open` when needed. If the port is taken by this repo's own board it
+reuses the running one; if something else holds it, the next free port is
+picked automatically. `meanboard init` creates `.board/README.md`; that
 file is the protocol for coding agents working with the board.
 
 Each task is a `.board/*.md` file:
