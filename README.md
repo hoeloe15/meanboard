@@ -36,3 +36,10 @@ Valid states are `draft`, `open`, `in-progress`, `review`, and `done`. Agents
 may edit task files directly; the running board watches those edits and alerts
 you whenever a task enters review. Done tasks can be moved into
 `.board/archive/` from the UI.
+
+## Agent skills
+
+`skills/` ships two [Agent Skills](https://agentskills.io) (`harness-init`,
+`board-enrich`) that teach coding agents — Claude Code, Codex CLI, or anything
+else adopting the standard — to scaffold the surrounding engineering harness
+and to enrich draft tasks by interviewing you. See `skills/README.md`.
