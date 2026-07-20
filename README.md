@@ -19,7 +19,11 @@ meanboard
 The board opens at `http://127.0.0.1:4949`. Use `--port <n>`, `--dir <path>`,
 or `--no-open` when needed. If the port is taken by this repo's own board it
 reuses the running one; if something else holds it, the next free port is
-picked automatically. `meanboard init` creates `.board/README.md`; that
+picked automatically. `Ctrl`/`⌘`+`K` opens a command palette: jump to any
+task or create a draft from what you typed.
+
+Typeface: [Inter](https://rsms.me/inter/) (SIL OFL 1.1), bundled as
+`public/inter.woff2` so the board loads nothing from the network. `meanboard init` creates `.board/README.md`; that
 file is the protocol for coding agents working with the board.
 
 Each task is a `.board/*.md` file:

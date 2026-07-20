@@ -86,8 +86,13 @@ enriched.
 ## UI (single page)
 
 Five columns: **Draft · Open · In Progress · Review · Done**, in that order.
-Header: repo name, small live-connection dot (SSE state), notification-permission
-button (only shown until granted).
+Header: repo name, Ctrl/⌘K hint, small live-connection dot (SSE state),
+notification-permission button (only shown until granted). A command palette
+(Ctrl/⌘K) jumps to any task by fuzzy title match or creates a draft from the
+query. Errors and review alerts surface as in-page toasts, never `alert()`.
+Look: "glass & aurora" — a slowly drifting aurora light-field plus film grain
+behind frosted-glass surfaces; self-hosted Inter variable (`public/inter.woff2`,
+OFL) as the UI face, monospace for machine facts.
 
 - Cards: title, plus a thin checklist progress bar + `done/total` when the
   body has `- [ ]` items. Click → overlay with the body rendered by a tiny

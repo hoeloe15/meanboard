@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>meanboard</title>
+  <link rel="preload" href="/inter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header class="topbar">
     <div><span class="mark">m/</span><h1 id="repo">meanboard</h1></div>
+    <button id="palette-hint" title="Command palette"><kbd>Ctrl</kbd><kbd>K</kbd></button>
     <div class="live"><span id="live-dot" title="Connecting"></span><span id="live-text">connecting</span></div>
     <button id="notify" class="quiet" hidden>Enable notifications</button>
   </header>
@@ -27,7 +29,7 @@
     <section class="column done" data-status="done"><header><h2>Done</h2><span class="count">0</span></header><button id="archive-all" class="archive-all" hidden>Archive all</button><div class="cards"></div></section>
     <section id="unknown" class="column unknown" hidden><header><h2>?</h2><span class="count">0</span></header><div class="cards"></div></section>
   </main>
-  <dialog id="task-dialog">
+  <dialog id="task-dialog" tabindex="-1">
     <div class="dialog-head"><h2 id="task-title"></h2><button id="close" class="icon" aria-label="Close">×</button></div>
     <div class="task-tools">
       <span class="status-pill" id="status-pill"><span class="status-dot"></span><select id="task-status" aria-label="Status"></select></span>
@@ -39,6 +41,13 @@
     <div id="task-edit" hidden><textarea id="raw" aria-label="Raw task markdown"></textarea>
       <div class="edit-actions"><button id="cancel" class="quiet">Cancel</button><button id="save">Save</button></div></div>
   </dialog>
+  <div id="palette" hidden>
+    <div id="palette-box">
+      <input id="palette-input" placeholder="Jump to a task, or type to create one…" aria-label="Command palette">
+      <div id="palette-list" role="listbox"></div>
+    </div>
+  </div>
+  <div id="toasts" aria-live="polite"></div>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,14 @@
 const statuses = ['draft', 'open', 'in-progress', 'review', 'done'];
 const labels = { draft:'Draft', open:'Open', 'in-progress':'In Progress', review:'Review', done:'Done' };
 const board = document.querySelector('#board'), dialog = document.querySelector('#task-dialog');
+const hues = { draft:'var(--c-draft)', open:'var(--c-open)', 'in-progress':'var(--c-progress)', review:'var(--c-review)', done:'var(--c-done)' };
+
+function toast(text, hue = 'var(--c-open)') {
+  const node = document.createElement('div');
+  node.className = 'toast'; node.style.setProperty('--toast-hue', hue); node.textContent = text;
+  document.querySelector('#toasts').append(node);
+  setTimeout(() => { node.classList.add('out'); setTimeout(() => node.remove(), 300); }, 3600);
+}
 const view = document.querySelector('#task-view'), editor = document.querySelector('#task-edit');
 let tasks = [], repo = 'meanboard', current = null, editing = false, audio;
 
@@ -119,7 +127,7 @@ async function toggleCheck(n) {
     const match = lines[i].match(/^(\s*[-*+]\s+\[)([ xX])(\].*)$/);
     if (match && ++seen === n) { lines[i] = match[1] + (match[2] === ' ' ? 'x' : ' ') + match[3]; break; }
   }
-  try { await patch(current.id, { body: lines.join('\n') }); } catch (error) { alert(error.message); }
+  try { await patch(current.id, { body: lines.join('\n') }); } catch (error) { toast(error.message, 'var(--c-unknown)'); }
 }
 
 function showTask(task, preserveEdit = false) {
@@ -135,7 +143,7 @@ function showTask(task, preserveEdit = false) {
   document.querySelector('#archive').hidden = task.status !== 'done';
   view.innerHTML = markdown(task.body || '');
   if (!(preserveEdit && editing)) setEditing(false);
-  if (!dialog.open) dialog.showModal();
+  if (!dialog.open) { dialog.showModal(); dialog.focus(); }
 }
 let editBase = null;
 function setEditing(value) {
@@ -149,13 +157,13 @@ async function patch(id, body) { await api(taskUrl(id), { method:'PATCH', header
 document.querySelector('#add-form').onsubmit = async event => {
   event.preventDefault(); const form = event.currentTarget, data = new FormData(form);
   try { await api('/api/tasks', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:data.get('title'), body:data.get('body') }) }); form.reset(); form.closest('details').open = false; await load(); }
-  catch (error) { alert(error.message); }
+  catch (error) { toast(error.message, 'var(--c-unknown)'); }
 };
 for (const section of document.querySelectorAll('.column[data-status]')) {
   section.ondragover = event => { event.preventDefault(); section.classList.add('drop'); };
   section.ondragleave = () => section.classList.remove('drop');
   section.ondrop = async event => { event.preventDefault(); section.classList.remove('drop'); const id = event.dataTransfer.getData('text/plain');
-    const task = tasks.find(item => item.id === id); if (task && task.status !== section.dataset.status) try { await patch(id, { status:section.dataset.status }); } catch (error) { alert(error.message); } };
+    const task = tasks.find(item => item.id === id); if (task && task.status !== section.dataset.status) try { await patch(id, { status:section.dataset.status }); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
 }
 view.onchange = event => { if (event.target.dataset.check !== undefined) toggleCheck(Number(event.target.dataset.check)); };
 document.querySelector('#note-form').onsubmit = async event => {
@@ -165,7 +173,7 @@ document.querySelector('#note-form').onsubmit = async event => {
   const p = n => String(n).padStart(2, '0'), d = new Date();
   const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   const body = `${(current.body || '').replace(/\s+$/, '')}\n\n---\n**${stamp}** — ${text}\n`;
-  try { await patch(current.id, { body }); input.value = ''; } catch (error) { alert(error.message); }
+  try { await patch(current.id, { body }); input.value = ''; } catch (error) { toast(error.message, 'var(--c-unknown)'); }
 };
 dialog.onclick = event => {
   const box = dialog.getBoundingClientRect();
@@ -180,13 +188,13 @@ document.querySelector('#save').onclick = async () => {
     !confirm('This task changed on disk while you were editing. Overwrite those changes?')) return;
   const raw = document.querySelector('#raw').value, match = /^# (.*?)(?:\r?\n|$)/m.exec(raw);
   const title = match?.[1].trim() || current.title, body = match ? raw.slice(match.index + match[0].length) : raw;
-  try { await patch(current.id, { title, body }); setEditing(false); } catch (error) { alert(error.message); }
+  try { await patch(current.id, { title, body }); setEditing(false); } catch (error) { toast(error.message, 'var(--c-unknown)'); }
 };
-document.querySelector('#task-status').onchange = async event => { try { await patch(current.id, { status:event.target.value }); } catch (error) { alert(error.message); } };
+document.querySelector('#task-status').onchange = async event => { try { await patch(current.id, { status:event.target.value }); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
 document.querySelector('#archive').onclick = async () => { if (!confirm(`Archive “${current.title}”?`)) return;
-  try { await api(`${taskUrl(current.id)}/archive`, { method:'POST' }); dialog.close(); await load(); } catch (error) { alert(error.message); } };
+  try { await api(`${taskUrl(current.id)}/archive`, { method:'POST' }); dialog.close(); await load(); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
 document.querySelector('#archive-all').onclick = async () => { const done = tasks.filter(task => task.status === 'done'); if (!confirm(`Archive ${done.length} done task${done.length === 1 ? '' : 's'}?`)) return;
-  try { await Promise.all(done.map(task => api(`${taskUrl(task.id)}/archive`, { method:'POST' }))); await load(); } catch (error) { alert(error.message); } };
+  try { await Promise.all(done.map(task => api(`${taskUrl(task.id)}/archive`, { method:'POST' }))); await load(); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
 
 // Browsers only unlock audio after a user gesture; grab a context on the first one.
 window.addEventListener('pointerdown', () => {
@@ -202,7 +210,8 @@ function chime() {
     oscillator.connect(gain).connect(audio.destination); oscillator.start(at); oscillator.stop(at + .2); });
 }
 function reviewAlert(task) {
-  chime(); if (!document.hasFocus()) { clearInterval(reviewAlert.flash); let flip = false; reviewAlert.flash = setInterval(() => { document.title = (flip = !flip) ? '● review' : `${repo} · meanboard`; }, 700); }
+  chime(); toast(`${task.title} — ready for review`, 'var(--c-review)');
+  if (!document.hasFocus()) { clearInterval(reviewAlert.flash); let flip = false; reviewAlert.flash = setInterval(() => { document.title = (flip = !flip) ? '● review' : `${repo} · meanboard`; }, 700); }
   if ('Notification' in window && Notification.permission === 'granted') new Notification(`${repo}: ${task.title} ready for review`);
   const header = document.querySelector('.column.review > header'); header.classList.remove('pulse'); void header.offsetWidth; header.classList.add('pulse');
 }
@@ -210,6 +219,66 @@ window.addEventListener('focus', () => { clearInterval(reviewAlert.flash); docum
 const notify = document.querySelector('#notify');
 if ('Notification' in window && Notification.permission !== 'granted') notify.hidden = false;
 notify.onclick = async () => { if (await Notification.requestPermission() === 'granted') notify.hidden = true; };
+// command palette
+const palette = document.querySelector('#palette'), paletteInput = document.querySelector('#palette-input'), paletteList = document.querySelector('#palette-list');
+let paletteRows = [], paletteIndex = 0;
+
+function openPalette() {
+  if (dialog.open) dialog.close();
+  palette.hidden = false; paletteInput.value = ''; renderPalette(''); paletteInput.focus();
+}
+function closePalette() { palette.hidden = true; }
+
+function renderPalette(query) {
+  const clean = query.trim(), q = clean.toLowerCase();
+  paletteRows = tasks
+    .filter(task => !q || task.title.toLowerCase().includes(q) || task.id.includes(q))
+    .sort((a, b) => statuses.indexOf(a.status) - statuses.indexOf(b.status) || (a.created || '').localeCompare(b.created || ''))
+    .slice(0, 9)
+    .map(task => ({ label: task.title, hue: hues[task.status] || 'var(--c-unknown)', hint: labels[task.status] || task.status,
+      run: () => { closePalette(); showTask(task); } }));
+  if (clean) paletteRows.push({ label: `Create draft “${clean}”`, hue: 'var(--c-draft)', hint: 'new', run: async () => {
+    closePalette();
+    try { await api('/api/tasks', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ title: clean }) }); await load(); toast(`Draft created — ${clean}`, 'var(--c-draft)'); }
+    catch (error) { toast(error.message, 'var(--c-unknown)'); }
+  } });
+  paletteIndex = 0;
+  if (!paletteRows.length) {
+    const empty = document.createElement('div'); empty.id = 'palette-empty'; empty.textContent = 'nothing here';
+    paletteList.replaceChildren(empty); return;
+  }
+  paletteList.replaceChildren(...paletteRows.map((row, i) => {
+    const node = document.createElement('div');
+    node.className = `palette-row${i === paletteIndex ? ' active' : ''}`; node.role = 'option';
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = row.hue;
+    const title = document.createElement('span'); title.className = 'title'; title.textContent = row.label;
+    const hint = document.createElement('span'); hint.className = 'hint'; hint.textContent = row.hint;
+    node.append(dot, title, hint);
+    node.onclick = row.run;
+    node.onmousemove = () => { if (paletteIndex !== i) { paletteIndex = i; markActive(); } };
+    return node;
+  }));
+}
+function markActive() {
+  [...paletteList.children].forEach((node, i) => node.classList.toggle('active', i === paletteIndex));
+  paletteList.children[paletteIndex]?.scrollIntoView({ block: 'nearest' });
+}
+paletteInput.oninput = () => renderPalette(paletteInput.value);
+paletteInput.onkeydown = event => {
+  if (event.key === 'Escape') closePalette();
+  else if (event.key === 'ArrowDown') { event.preventDefault(); paletteIndex = Math.min(paletteIndex + 1, paletteRows.length - 1); markActive(); }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); paletteIndex = Math.max(paletteIndex - 1, 0); markActive(); }
+  else if (event.key === 'Enter') { event.preventDefault(); paletteRows[paletteIndex]?.run(); }
+};
+palette.onclick = event => { if (event.target === palette) closePalette(); };
+document.querySelector('#palette-hint').onclick = openPalette;
+window.addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault();
+    palette.hidden ? openPalette() : closePalette();
+  }
+});
+
 const events = new EventSource('/api/events'), dot = document.querySelector('#live-dot'), liveText = document.querySelector('#live-text');
 events.onopen = () => { dot.classList.add('on'); dot.title = 'Live'; liveText.textContent = 'live'; };
 events.onerror = () => { dot.classList.remove('on'); dot.title = 'Reconnecting'; liveText.textContent = 'reconnecting'; };
