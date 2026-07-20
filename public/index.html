@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>meanboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><span class="mark">m/</span><h1 id="repo">meanboard</h1></div>
+    <div class="live"><span id="live-dot" title="Connecting"></span><span id="live-text">connecting</span></div>
+    <button id="notify" class="quiet" hidden>Enable notifications</button>
+  </header>
+  <main id="board" aria-label="Kanban board">
+    <section class="column draft" data-status="draft">
+      <header><h2>Draft</h2><span class="count">0</span></header>
+      <details class="add"><summary>＋ Add</summary>
+        <form id="add-form"><input name="title" aria-label="Task title" placeholder="Task title" required>
+          <textarea name="body" aria-label="Task body" placeholder="Optional notes" rows="3"></textarea>
+          <button>Create draft</button></form>
+      </details><div class="cards"></div>
+    </section>
+    <section class="column open" data-status="open"><header><h2>Open</h2><span class="count">0</span></header><div class="cards"></div></section>
+    <section class="column progress" data-status="in-progress"><header><h2>In Progress</h2><span class="count">0</span></header><div class="cards"></div></section>
+    <section class="column review" data-status="review"><header><h2>Review</h2><span class="count">0</span></header><div class="cards"></div></section>
+    <section class="column done" data-status="done"><header><h2>Done</h2><span class="count">0</span></header><button id="archive-all" class="archive-all" hidden>Archive all</button><div class="cards"></div></section>
+    <section id="unknown" class="column unknown" hidden><header><h2>?</h2><span class="count">0</span></header><div class="cards"></div></section>
+  </main>
+  <dialog id="task-dialog">
+    <div class="dialog-head"><h2 id="task-title"></h2><button id="close" class="icon" aria-label="Close">×</button></div>
+    <div class="task-tools"><label>Status <select id="task-status"></select></label><span class="spacer"></span>
+      <button id="edit" class="quiet">Edit</button><button id="archive" class="danger" hidden>Archive</button></div>
+    <article id="task-view" class="markdown"></article>
+    <div id="task-edit" hidden><textarea id="raw" aria-label="Raw task markdown"></textarea>
+      <div class="edit-actions"><button id="cancel" class="quiet">Cancel</button><button id="save">Save</button></div></div>
+  </dialog>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
