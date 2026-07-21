@@ -143,7 +143,7 @@ function showTask(task, preserveEdit = false) {
   if (!statuses.includes(task.status)) select.append(new Option(`? ${task.status}`, task.status));
   select.value = task.status;
   document.querySelector('#status-pill').dataset.status = task.status;
-  document.querySelector('#task-file').textContent = `${task.id}.md`;
+  document.querySelector('#task-file').textContent = task.ref || `${task.id}.md`;
   document.querySelector('#task-created').textContent = task.created ? `created ${task.created}` : '';
   document.querySelector('#archive').hidden = task.status !== 'done';
   const [spec, log] = splitLog(task.body || '');

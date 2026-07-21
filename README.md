@@ -22,6 +22,27 @@ reuses the running one; if something else holds it, the next free port is
 picked automatically. `Ctrl`/`⌘`+`K` opens a command palette: jump to any
 task or create a draft from what you typed.
 
+## GitHub mode
+
+For repos worked from several machines or by several people, the board can use
+**GitHub Issues as the store** instead of local files:
+
+```sh
+meanboard --github            # auto-detects owner/repo from the origin remote
+meanboard --github owner/repo
+```
+
+Auth comes from `gh auth token` (or `GITHUB_TOKEN`). Mapping: task = open
+issue carrying a `status:*` label (labels are created on first run), spec =
+issue body, activity log = issue comments, archive = close. The board polls
+for changes, so a status flipped from any machine — `gh issue edit N
+--add-label status:review` — raises the review alert everywhere. Agents
+interact with plain `gh` commands; start a comment with `[your-name]` to sign
+it as something other than the authenticated account.
+
+File mode (`.board/`, the default) remains the right choice for single-machine
+repos: offline, dependency-free, git-diffable.
+
 Typeface: [Inter](https://rsms.me/inter/) (SIL OFL 1.1), bundled as
 `public/inter.woff2` so the board loads nothing from the network. `meanboard init` creates `.board/README.md`; that
 file is the protocol for coding agents working with the board.

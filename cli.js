@@ -4,16 +4,18 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { boardReadme } from './lib/board-readme.js';
 import { createServer } from './lib/server.js';
-import { listTasks, STATUSES } from './lib/store.js';
+import { createFileStore, STATUSES } from './lib/store.js';
+import { createGithubStore, detectRepo, resolveToken } from './lib/store-github.js';
 
 function options(argv) {
-  const out = { command: null, port: 4949, dir: './.board', open: true };
+  const out = { command: null, port: 4949, dir: './.board', open: true, github: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === 'init' && !out.command) out.command = 'init';
     else if (arg === '--no-open') out.open = false;
     else if (arg === '--port' && argv[i + 1]) out.port = Number(argv[++i]);
     else if (arg === '--dir' && argv[i + 1]) out.dir = argv[++i];
+    else if (arg === '--github') out.github = argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[++i] : true;
     else throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
   if (!Number.isInteger(out.port) || out.port < 1 || out.port > 65535) throw new Error('Port must be an integer from 1 to 65535');
@@ -38,23 +40,34 @@ function autoOpen(url) {
   attempt(0);
 }
 
+async function buildStore(opts, cwd) {
+  if (opts.github) {
+    const repo = opts.github === true ? await detectRepo() : opts.github;
+    const token = await resolveToken();
+    return { store: await createGithubStore({ repo, token }), repo };
+  }
+  const boardDir = path.resolve(cwd, opts.dir);
+  try { if (!(await fs.stat(boardDir)).isDirectory()) throw new Error(); }
+  catch { throw new Error('No board found. Run `meanboard init` first (or use --github).'); }
+  return { store: createFileStore(boardDir), repo: path.basename(cwd) };
+}
+
 async function main() {
   let opts;
   try { opts = options(process.argv.slice(2)); } catch (error) { console.error(`meanboard: ${error.message}`); process.exitCode = 1; return; }
   const cwd = process.cwd();
   if (opts.command === 'init') return init(cwd);
-  const boardDir = path.resolve(cwd, opts.dir);
-  try { if (!(await fs.stat(boardDir)).isDirectory()) throw new Error(); }
-  catch { console.error('No board found. Run `meanboard init` first.'); process.exitCode = 1; return; }
-  const repo = path.basename(cwd);
-  const tasks = await listTasks(boardDir);
+  let store, repo;
+  try { ({ store, repo } = await buildStore(opts, cwd)); }
+  catch (error) { console.error(`meanboard: ${error.message}`); process.exitCode = 1; return; }
+  const tasks = await store.list();
   const counts = Object.fromEntries(STATUSES.map(s => [s, tasks.filter(t => t.status === s).length]));
-  const server = await createServer({ boardDir, repo });
+  const server = await createServer({ store, repo });
   const listen = (port, triesLeft) => {
     server.removeAllListeners('listening');
     server.once('error', async error => {
       if (error.code !== 'EADDRINUSE') { console.error(`meanboard: ${error.message}`); server.close(); process.exitCode = 1; return; }
-      if (await isSameBoard(port, boardDir)) {
+      if (await isSameBoard(port, store.key)) {
         const url = `http://127.0.0.1:${port}`;
         console.log(`Board for ${repo} is already running — ${url}`);
         if (opts.open) autoOpen(url);
@@ -75,12 +88,12 @@ async function main() {
   listen(opts.port, 20);
 }
 
-async function isSameBoard(port, boardDir) {
+async function isSameBoard(port, key) {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(1000) });
     if (!res.ok) return false;
     const health = await res.json();
-    return health.app === 'meanboard' && health.dir === boardDir;
+    return health.app === 'meanboard' && health.dir === key;
   } catch { return false; }
 }
 

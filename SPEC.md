@@ -1,7 +1,12 @@
 # meanboard — spec v1
 
-A mean, lean, agent-native kanban board. One tiny local web app per repo. Markdown
-files are the only source of truth. Zero runtime dependencies. No build step.
+A mean, lean, agent-native kanban board. One tiny local web app per repo.
+Zero runtime dependencies. No build step. Two interchangeable stores behind
+one server interface (`list/create/update/archive/watch/validId/key`):
+markdown files in `.board/` (default; single-machine, offline, git-diffable)
+or GitHub Issues via `--github` (multi-machine/multi-dev; task = open issue
+with a `status:*` label, spec = body, log = comments, archive = close,
+change detection by polling).
 
 Explicitly OUT of scope (do not add): milestones, priorities, assignees, labels,
 due dates, subtasks, dependencies, auth, multi-user, database, config files.
