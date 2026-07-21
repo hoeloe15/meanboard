@@ -33,6 +33,12 @@ Prefix `finding:` for anything the owner must see — the board highlights it.
 Write status changes as `status: a → b`. Keep the spec above the Log clean:
 outcomes and history go in the Log, not woven into the description.
 
+Conversation splits by level, never duplicated: the Log carries task-level
+talk — scope, findings, decisions, review outcomes. Code-level talk — line
+comments, approvals — lives on the PR. Cross-link both ways (log the PR on
+the task; name the task file in the PR) and after a review, log its outcome
+on the task in one line.
+
 Keep bodies lean. No priorities, assignees, or milestones — if ordering matters,
 say so in prose. Never edit `created:`. New task = new file:
 `slug-of-title.md` with status/created frontmatter and a `# Title` heading.
