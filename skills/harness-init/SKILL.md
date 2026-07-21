@@ -51,7 +51,12 @@ stack — this is a method, not a paste.
    `.board/README.md`. Drafts get enriched via the `board-enrich` skill before agents may
    claim them; setting `review` alerts the owner through the board UI; only the owner moves
    review → done. A task body doubles as the batch spec (GOAL / verify gate / CAP). No
-   milestones, priorities, or assignees — the board stays mean and lean.
+   milestones, priorities, or assignees — the board stays mean and lean. AGENTS.md also
+   states the concurrent-work rules: assume other agents and the owner work the repo
+   simultaneously, and open every task with the start ritual — fetch and base on fresh
+   origin/main, read the board for claims and in-flight work, claim the task naming your
+   branch, then create your own worktree (never switch branches in a checkout you did
+   not create); rebase before the PR.
 
 ## The batch loop protocol (goes in AGENTS.md)
 
