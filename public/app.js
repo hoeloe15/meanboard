@@ -165,10 +165,38 @@ function showTask(task, preserveEdit = false) {
   }));
   const [spec, log] = splitLog(task.body || '');
   view.innerHTML = markdown(spec);
+  renderPRDetails(task.prs || []);
   renderActivity(log);
   if (!(preserveEdit && editing)) setEditing(false);
   if (!dialog.open) { dialog.showModal(); dialog.focus(); }
   if (!task.prs) enrichTask(task);
+}
+
+function renderPRDetails(prs) {
+  const wrap = document.querySelector('#task-prdetails');
+  const rich = prs.filter(pr => pr.files);
+  wrap.dataset.has = rich.length ? '1' : '';
+  wrap.hidden = editing || !rich.length;
+  wrap.replaceChildren(...rich.map(pr => {
+    const box = document.createElement('details'); box.className = 'pr-detail';
+    const summary = document.createElement('summary');
+    const state = document.createElement('span'); state.className = `pr-chip ${pr.state}`; state.textContent = `#${pr.n} ${pr.state}`;
+    const title = document.createElement('span'); title.className = 'pr-title'; title.textContent = pr.title;
+    const churn = document.createElement('span'); churn.className = 'pr-churn';
+    churn.innerHTML = `${pr.files.length} files <ins>+${pr.additions}</ins> <del>−${pr.deletions}</del>`;
+    summary.append(state, title, churn);
+    const inner = document.createElement('div'); inner.className = 'pr-inner';
+    if (pr.body?.trim()) { const desc = document.createElement('div'); desc.className = 'markdown'; desc.innerHTML = markdown(pr.body); inner.append(desc); }
+    const files = document.createElement('ul'); files.className = 'pr-files';
+    for (const file of pr.files) {
+      const row = document.createElement('li');
+      row.innerHTML = `<span class="path">${escapeHtml(file.path)}</span><span class="delta"><ins>+${file.add}</ins> <del>−${file.del}</del></span>`;
+      files.append(row);
+    }
+    inner.append(files);
+    box.append(summary, inner);
+    return box;
+  }));
 }
 
 let enrichSeq = 0;
@@ -229,6 +257,8 @@ function setEditing(value) {
   document.querySelector('#note-form').hidden = value;
   const activity = document.querySelector('#task-activity');
   activity.hidden = value || activity.dataset.has !== '1';
+  const prdetails = document.querySelector('#task-prdetails');
+  prdetails.hidden = value || prdetails.dataset.has !== '1';
   editBase = value ? current.body : null;
   if (value) { document.querySelector('#raw').value = `# ${current.title}\n${current.body}`; document.querySelector('#raw').focus(); }
 }

@@ -36,6 +36,13 @@ function fakeGithub(state) {
       }
       return respond(issue);
     }
+    if (/^\/repos\/o\/r\/issues\/\d+\/timeline$/.test(pathname)) return respond([]);
+    const pullMatch = pathname.match(/^\/repos\/o\/r\/pulls\/(\d+)(\/files)?$/);
+    if (pullMatch) {
+      const pull = (state.pulls || {})[pullMatch[1]];
+      if (!pull) return { ok: false, status: 404, text: async () => 'nope' };
+      return respond(pullMatch[2] ? pull.files || [] : pull);
+    }
     const commentsMatch = pathname.match(/^\/repos\/o\/r\/issues\/(\d+)\/comments$/);
     if (commentsMatch) {
       const issue = state.issues.find(i => i.number === Number(commentsMatch[1]));
@@ -97,6 +104,33 @@ test('body updates strip the synthesized Log section before writing', async () =
   const s = await store(state);
   await s.update('7', { body: 'New spec\n\n## Log\n\n- **x** — should not persist\n' });
   assert.equal(state.issues.find(i => i.number === 7).body, 'New spec\n');
+});
+
+test('a merged linked PR auto-moves a review task to done', async () => {
+  const state = baseState();
+  state.comments[7].push({ body: 'ready: https://github.com/o/r/pull/53', user: { login: 'hoeloe15' }, created_at: '2026-07-20T21:42:00Z' });
+  state.issues.find(i => i.number === 7).comments = 3;
+  state.pulls = { 53: { number: 53, title: 'Drain gate', state: 'closed', merged_at: '2026-07-21T08:00:00Z', additions: 10, deletions: 2, body: 'the fix', user: { login: 'hoeloe15' }, created_at: '2026-07-20T20:00:00Z', files: [{ filename: 'server/drain.ts', additions: 10, deletions: 2 }] } };
+  const s = await createGithubStore({ repo: 'o/r', token: 't', fetchImpl: fakeGithub(state), pollMs: 3600_000 });
+  const events = [];
+  const watcher = await s.watch((event, data) => events.push(event));
+  await new Promise(resolve => setTimeout(resolve, 700));
+  watcher.close();
+  const issue = state.issues.find(i => i.number === 7);
+  assert.ok(issue.labels.map(l => l.name).includes('status:done'), 'label flipped to done');
+  assert.match(state.comments[7].at(-1).body, /linked PR #53 merged/);
+  assert.ok(events.includes('change'));
+});
+
+test('detail carries PR body and changed files for linked PRs', async () => {
+  const state = baseState();
+  state.comments[7].push({ body: 'see https://github.com/o/r/pull/53', user: { login: 'hoeloe15' }, created_at: '2026-07-20T21:42:00Z' });
+  state.issues.find(i => i.number === 7).comments = 3;
+  state.pulls = { 53: { number: 53, title: 'Drain gate', state: 'open', merged_at: null, additions: 10, deletions: 2, body: 'the fix', user: { login: 'hoeloe15' }, created_at: '2026-07-20T20:00:00Z', files: [{ filename: 'server/drain.ts', additions: 10, deletions: 2 }] } };
+  const s = await createGithubStore({ repo: 'o/r', token: 't', fetchImpl: fakeGithub(state) });
+  const task = await s.detail('7');
+  assert.deepEqual(task.prs, [{ n: 53, state: 'open', title: 'Drain gate', body: 'the fix', additions: 10, deletions: 2, files: [{ path: 'server/drain.ts', add: 10, del: 2 }] }]);
+  assert.match(task.body, /· #53\*\* — opened PR: Drain gate/);
 });
 
 test('missing issues 404 as null/false and labels are ensured once', async () => {
