@@ -234,6 +234,32 @@ dialog::backdrop { background: rgba(2, 4, 9, .55); backdrop-filter: blur(7px); }
 }
 .markdown li.check input:checked + span { color: var(--muted); }
 
+/* activity log */
+.activity { margin-top: 16px; padding-top: 6px; border-top: 1px solid var(--edge-soft); }
+.activity h4 { margin: 8px 0 10px; font: 640 10.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.log-entries { position: relative; margin-left: 5px; padding-left: 18px; border-left: 1px solid var(--edge-soft); display: grid; gap: 3px; }
+.log-entry { position: relative; padding: 6px 4px; display: grid; gap: 3px; border-radius: 8px; }
+.log-entry::before {
+  content: ""; position: absolute; left: -22px; top: 12px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--dot, var(--faint));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--dot, var(--faint)) 60%, transparent);
+}
+.log-meta { display: flex; align-items: center; gap: 8px; }
+.log-ts { font: 10.5px var(--mono); color: var(--faint); }
+.log-author {
+  font: 570 10.5px var(--mono); color: var(--muted); padding: 1px 7px;
+  border: 1px solid var(--edge); border-radius: 999px; background: rgba(5, 8, 14, .5);
+}
+.log-flag {
+  font: 640 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--c-review); padding: 1px 7px; border: 1px solid rgba(245, 181, 68, .4);
+  border-radius: 999px; background: rgba(245, 181, 68, .08);
+}
+.log-text { font-size: 13px; overflow-wrap: anywhere; }
+.log-entry.system { padding: 3px 4px; }
+.log-entry.system .log-text { font-size: 12px; color: var(--muted); }
+.log-entry.finding { --dot: var(--c-review); background: rgba(245, 181, 68, .05); border: 1px solid rgba(245, 181, 68, .14); padding: 8px 10px; }
+
 /* note + edit */
 #note-form { display: flex; gap: 9px; margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--edge-soft); }
 #note-form input { flex: 1; font-size: 13px; }

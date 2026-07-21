@@ -109,6 +109,17 @@ test('a heading inside a code fence is not mistaken for the title', () => {
   assert.equal(task.body, '```md\n# not the title\n```\nprose\n');
 });
 
+test('log patches append to a created ## Log section without touching the spec', async t => {
+  const dir = await fixture(t);
+  const task = await createTask(dir, { title:'Logged', status:'open', body:'Spec text\n' });
+  await updateTask(dir, task.id, { log:'claimed; branch fix/x' });
+  const after = await updateTask(dir, task.id, { status:'review', log:'status: in-progress → review' });
+  assert.equal(after.status, 'review');
+  const text = await fs.readFile(path.join(dir, `${task.id}.md`), 'utf8');
+  assert.match(text, /Spec text\n\n## Log\n\n- \*\*\d{4}-\d{2}-\d{2} \d{2}:\d{2}\*\* — claimed; branch fix\/x\n- \*\*[^\n]+\*\* — status: in-progress → review\n$/);
+  await assert.rejects(updateTask(dir, task.id, { log:'  ' }), /Log entry/);
+});
+
 test('concurrent updates to one task are serialized, not lost', async t => {
   const dir = await fixture(t);
   const task = await createTask(dir, { title:'Busy', status:'open', body:'start\n' });

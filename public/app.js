@@ -20,8 +20,13 @@ async function api(url, options) {
 }
 const taskUrl = id => `/api/tasks/${encodeURIComponent(id)}`;
 
+function splitLog(body) {
+  const match = /^## Log[ \t]*\r?\n?/m.exec(body || '');
+  return match ? [body.slice(0, match.index), body.slice(match.index + match[0].length)] : [body || '', ''];
+}
+
 function checks(body) {
-  const marks = (body || '').match(/^\s*[-*+]\s+\[[ xX]\]/gm) || [];
+  const marks = splitLog(body)[0].match(/^\s*[-*+]\s+\[[ xX]\]/gm) || [];
   return { done: marks.filter(m => /\[[xX]\]/.test(m)).length, total: marks.length };
 }
 
@@ -141,14 +146,57 @@ function showTask(task, preserveEdit = false) {
   document.querySelector('#task-file').textContent = `${task.id}.md`;
   document.querySelector('#task-created').textContent = task.created ? `created ${task.created}` : '';
   document.querySelector('#archive').hidden = task.status !== 'done';
-  view.innerHTML = markdown(task.body || '');
+  const [spec, log] = splitLog(task.body || '');
+  view.innerHTML = markdown(spec);
+  renderActivity(log);
   if (!(preserveEdit && editing)) setEditing(false);
   if (!dialog.open) { dialog.showModal(); dialog.focus(); }
+}
+
+function parseLog(raw) {
+  const entries = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const match = line.match(/^\s*[-*]\s+\*\*(.+?)\*\*\s*[—-]+\s*(.*)$/);
+    if (match) {
+      const [ts, author] = match[1].split(/\s*·\s*/);
+      entries.push({ ts: ts || '', author: author || '', text: match[2] });
+    } else if (line.trim() && entries.length) entries[entries.length - 1].text += ` ${line.trim()}`;
+  }
+  return entries;
+}
+
+function renderActivity(raw) {
+  const wrap = document.querySelector('#task-activity');
+  const entries = parseLog(raw);
+  wrap.dataset.has = entries.length ? '1' : '';
+  wrap.hidden = editing || !entries.length;
+  if (!entries.length) { wrap.replaceChildren(); return; }
+  const head = document.createElement('h4'); head.textContent = 'Activity';
+  const list = document.createElement('div'); list.className = 'log-entries';
+  for (const entry of entries) {
+    const node = document.createElement('div'); node.className = 'log-entry';
+    let text = entry.text;
+    const status = text.match(/^status:\s*(?:[\w-]+)\s*(?:→|->)\s*([\w-]+)/);
+    if (status) { node.classList.add('system'); node.style.setProperty('--dot', hues[status[1]] || 'var(--faint)'); }
+    const finding = text.match(/^finding:\s*/i);
+    if (finding) { node.classList.add('finding'); text = text.slice(finding[0].length); }
+    const meta = document.createElement('span'); meta.className = 'log-meta';
+    const ts = document.createElement('span'); ts.className = 'log-ts'; ts.textContent = entry.ts;
+    meta.append(ts);
+    if (entry.author) { const who = document.createElement('span'); who.className = 'log-author'; who.textContent = entry.author; meta.append(who); }
+    if (finding) { const chip = document.createElement('span'); chip.className = 'log-flag'; chip.textContent = 'finding'; meta.append(chip); }
+    const body = document.createElement('span'); body.className = 'log-text'; body.innerHTML = inline(text);
+    node.append(meta, body);
+    list.append(node);
+  }
+  wrap.replaceChildren(head, list);
 }
 let editBase = null;
 function setEditing(value) {
   editing = value; view.hidden = value; editor.hidden = !value; document.querySelector('#edit').hidden = value;
   document.querySelector('#note-form').hidden = value;
+  const activity = document.querySelector('#task-activity');
+  activity.hidden = value || activity.dataset.has !== '1';
   editBase = value ? current.body : null;
   if (value) { document.querySelector('#raw').value = `# ${current.title}\n${current.body}`; document.querySelector('#raw').focus(); }
 }
@@ -163,17 +211,15 @@ for (const section of document.querySelectorAll('.column[data-status]')) {
   section.ondragover = event => { event.preventDefault(); section.classList.add('drop'); };
   section.ondragleave = () => section.classList.remove('drop');
   section.ondrop = async event => { event.preventDefault(); section.classList.remove('drop'); const id = event.dataTransfer.getData('text/plain');
-    const task = tasks.find(item => item.id === id); if (task && task.status !== section.dataset.status) try { await patch(id, { status:section.dataset.status }); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
+    const task = tasks.find(item => item.id === id); if (task && task.status !== section.dataset.status)
+      try { await patch(id, { status:section.dataset.status, log:`status: ${task.status} → ${section.dataset.status}` }); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
 }
 view.onchange = event => { if (event.target.dataset.check !== undefined) toggleCheck(Number(event.target.dataset.check)); };
 document.querySelector('#note-form').onsubmit = async event => {
   event.preventDefault();
   const input = event.currentTarget.querySelector('input'), text = input.value.trim();
   if (!text) return;
-  const p = n => String(n).padStart(2, '0'), d = new Date();
-  const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-  const body = `${(current.body || '').replace(/\s+$/, '')}\n\n---\n**${stamp}** — ${text}\n`;
-  try { await patch(current.id, { body }); input.value = ''; } catch (error) { toast(error.message, 'var(--c-unknown)'); }
+  try { await patch(current.id, { log: text }); input.value = ''; } catch (error) { toast(error.message, 'var(--c-unknown)'); }
 };
 dialog.onclick = event => {
   const box = dialog.getBoundingClientRect();
@@ -190,7 +236,10 @@ document.querySelector('#save').onclick = async () => {
   const title = match?.[1].trim() || current.title, body = match ? raw.slice(match.index + match[0].length) : raw;
   try { await patch(current.id, { title, body }); setEditing(false); } catch (error) { toast(error.message, 'var(--c-unknown)'); }
 };
-document.querySelector('#task-status').onchange = async event => { try { await patch(current.id, { status:event.target.value }); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
+document.querySelector('#task-status').onchange = async event => {
+  const to = event.target.value;
+  try { await patch(current.id, { status: to, log: `status: ${current.status} → ${to}` }); } catch (error) { toast(error.message, 'var(--c-unknown)'); }
+};
 document.querySelector('#archive').onclick = async () => { if (!confirm(`Archive “${current.title}”?`)) return;
   try { await api(`${taskUrl(current.id)}/archive`, { method:'POST' }); dialog.close(); await load(); } catch (error) { toast(error.message, 'var(--c-unknown)'); } };
 document.querySelector('#archive-all').onclick = async () => { const done = tasks.filter(task => task.status === 'done'); if (!confirm(`Archive ${done.length} done task${done.length === 1 ? '' : 's'}?`)) return;
