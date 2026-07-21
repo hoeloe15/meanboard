@@ -250,6 +250,21 @@ dialog::backdrop { background: rgba(2, 4, 9, .55); backdrop-filter: blur(7px); }
   font: 570 10.5px var(--mono); color: var(--muted); padding: 1px 7px;
   border: 1px solid var(--edge); border-radius: 999px; background: rgba(5, 8, 14, .5);
 }
+.markdown a, .log-text a { color: var(--c-open); text-decoration: none; border-bottom: 1px solid rgba(90, 167, 255, .35); }
+.markdown a:hover, .log-text a:hover { border-bottom-color: var(--c-open); }
+.log-src {
+  font: 570 10.5px var(--mono); color: var(--c-progress); padding: 1px 7px;
+  border: 1px solid rgba(167, 139, 250, .35); border-radius: 999px;
+  background: rgba(167, 139, 250, .08); text-decoration: none;
+}
+.pr-chip {
+  font: 570 11px var(--mono); padding: 2px 9px; border-radius: 999px;
+  text-decoration: none; border: 1px solid var(--edge); color: var(--muted);
+  margin-left: 4px;
+}
+.pr-chip.open { color: var(--c-open); border-color: rgba(90, 167, 255, .4); background: rgba(90, 167, 255, .08); }
+.pr-chip.merged { color: var(--c-progress); border-color: rgba(167, 139, 250, .4); background: rgba(167, 139, 250, .08); }
+.pr-chip.closed { color: var(--c-unknown); border-color: rgba(240, 113, 106, .4); background: rgba(240, 113, 106, .08); }
 .log-flag {
   font: 640 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase;
   color: var(--c-review); padding: 1px 7px; border: 1px solid rgba(245, 181, 68, .4);

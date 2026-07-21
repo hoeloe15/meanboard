@@ -10,7 +10,7 @@ function toast(text, hue = 'var(--c-open)') {
   setTimeout(() => { node.classList.add('out'); setTimeout(() => node.remove(), 300); }, 3600);
 }
 const view = document.querySelector('#task-view'), editor = document.querySelector('#task-edit');
-let tasks = [], repo = 'meanboard', current = null, editing = false, audio;
+let tasks = [], repo = 'meanboard', linkBase = null, current = null, editing = false, audio;
 
 async function api(url, options) {
   const response = await fetch(url, options);
@@ -87,7 +87,7 @@ async function load() {
   if (loading) { loadQueued = true; return loading; }
   loading = (async () => {
     const openId = dialog.open && current?.id;
-    const data = await api('/api/tasks'); tasks = data.tasks; repo = data.repo;
+    const data = await api('/api/tasks'); tasks = data.tasks; repo = data.repo; linkBase = data.link || null;
     document.querySelector('#repo').textContent = repo; document.title = `${repo} · meanboard`; render();
     if (openId) {
       const task = tasks.find(item => item.id === openId);
@@ -102,7 +102,17 @@ function inline(text) {
   const code = [];
   let out = escapeHtml(text).replace(/`([^`]+)`/g, (_, value) => `\u0000${code.push(value) - 1}\u0000`);
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+  out = out.replace(/\[([^\]]+)\]\((https?:[^\s)]+)\)/g, (_, label, url) => `<a href="${url}" target="_blank" rel="noopener">${label}</a>`);
+  out = out.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, pre, url) => `${pre}<a href="${url}" target="_blank" rel="noopener">${shortUrl(url)}</a>`);
+  if (linkBase) out = out.replace(/(^|[\s(])#(\d+)\b/g, (_, pre, n) => `${pre}<a href="${linkBase}/issues/${n}" target="_blank" rel="noopener">#${n}</a>`);
   return out.replace(/\u0000(\d+)\u0000/g, (_, index) => `<code>${code[index]}</code>`);
+}
+
+function shortUrl(url) {
+  const gh = url.match(/^https?:\/\/(?:www\.)?github\.com\/([^/]+\/[^/]+)\/(?:pull|issues)\/(\d+)/);
+  if (gh) return `${gh[1]}#${gh[2]}`;
+  const bare = url.replace(/^https?:\/\//, '');
+  return bare.length > 60 ? `${bare.slice(0, 57)}…` : bare;
 }
 function markdown(source) {
   const lines = source.replace(/\r\n/g, '\n').split('\n'), out = [];
@@ -146,11 +156,28 @@ function showTask(task, preserveEdit = false) {
   document.querySelector('#task-file').textContent = task.ref || `${task.id}.md`;
   document.querySelector('#task-created').textContent = task.created ? `created ${task.created}` : '';
   document.querySelector('#archive').hidden = task.status !== 'done';
+  const prs = document.querySelector('#task-prs');
+  prs.replaceChildren(...(task.prs || []).map(pr => {
+    const chip = document.createElement(linkBase ? 'a' : 'span');
+    chip.className = `pr-chip ${pr.state}`; chip.textContent = `#${pr.n} ${pr.state}`; chip.title = pr.title;
+    if (linkBase) { chip.href = `${linkBase}/pull/${pr.n}`; chip.target = '_blank'; chip.rel = 'noopener'; }
+    return chip;
+  }));
   const [spec, log] = splitLog(task.body || '');
   view.innerHTML = markdown(spec);
   renderActivity(log);
   if (!(preserveEdit && editing)) setEditing(false);
   if (!dialog.open) { dialog.showModal(); dialog.focus(); }
+  if (!task.prs) enrichTask(task);
+}
+
+let enrichSeq = 0;
+function enrichTask(task) {
+  const seq = ++enrichSeq;
+  api(taskUrl(task.id)).then(full => {
+    if (seq !== enrichSeq || current?.id !== task.id || !dialog.open || editing) return;
+    showTask(full, true);
+  }).catch(() => {});
 }
 
 function parseLog(raw) {
@@ -158,8 +185,8 @@ function parseLog(raw) {
   for (const line of raw.split(/\r?\n/)) {
     const match = line.match(/^\s*[-*]\s+\*\*(.+?)\*\*\s*[—-]+\s*(.*)$/);
     if (match) {
-      const [ts, author] = match[1].split(/\s*·\s*/);
-      entries.push({ ts: ts || '', author: author || '', text: match[2] });
+      const [ts, author, src] = match[1].split(/\s*·\s*/);
+      entries.push({ ts: ts || '', author: author || '', src: src || '', text: match[2] });
     } else if (line.trim() && entries.length) entries[entries.length - 1].text += ` ${line.trim()}`;
   }
   return entries;
@@ -184,6 +211,11 @@ function renderActivity(raw) {
     const ts = document.createElement('span'); ts.className = 'log-ts'; ts.textContent = entry.ts;
     meta.append(ts);
     if (entry.author) { const who = document.createElement('span'); who.className = 'log-author'; who.textContent = entry.author; meta.append(who); }
+    if (entry.src) {
+      const src = document.createElement(linkBase ? 'a' : 'span'); src.className = 'log-src'; src.textContent = entry.src;
+      if (linkBase) { src.href = `${linkBase}/pull/${entry.src.replace('#', '')}`; src.target = '_blank'; src.rel = 'noopener'; }
+      meta.append(src);
+    }
     if (finding) { const chip = document.createElement('span'); chip.className = 'log-flag'; chip.textContent = 'finding'; meta.append(chip); }
     const body = document.createElement('span'); body.className = 'log-text'; body.innerHTML = inline(text);
     node.append(meta, body);
