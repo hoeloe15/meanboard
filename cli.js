@@ -41,14 +41,17 @@ function autoOpen(url) {
 }
 
 async function buildStore(opts, cwd) {
-  if (opts.github) {
-    const repo = opts.github === true ? await detectRepo() : opts.github;
-    const token = await resolveToken();
-    return { store: await createGithubStore({ repo, token }), repo };
-  }
+  const github = async repo => ({ store: await createGithubStore({ repo, token: await resolveToken() }), repo });
+  if (opts.github) return github(opts.github === true ? await detectRepo() : opts.github);
   const boardDir = path.resolve(cwd, opts.dir);
   try { if (!(await fs.stat(boardDir)).isDirectory()) throw new Error(); }
-  catch { throw new Error('No board found. Run `meanboard init` first (or use --github).'); }
+  catch {
+    // No file board: fall back to GitHub mode when the repo lives there.
+    let repo = null;
+    try { repo = await detectRepo(); } catch { /* not a github repo */ }
+    if (repo) { console.log(`No .board/ here — using GitHub Issues for ${repo}.`); return github(repo); }
+    throw new Error('No board found. Run `meanboard init` for a file board, or use --github for Issues.');
+  }
   return { store: createFileStore(boardDir), repo: path.basename(cwd) };
 }
 

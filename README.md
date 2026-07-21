@@ -32,6 +32,10 @@ meanboard --github            # auto-detects owner/repo from the origin remote
 meanboard --github owner/repo
 ```
 
+Plain `meanboard` also falls back to GitHub mode automatically when the
+directory has no `.board/` but the git origin is on github.com — so in an
+Issues-mode repo the bare command just works on any branch.
+
 Auth comes from `gh auth token` (or `GITHUB_TOKEN`). Mapping: task = open
 issue carrying a `status:*` label (labels are created on first run), spec =
 issue body, activity log = issue comments, archive = close. The board polls
