@@ -44,6 +44,17 @@ for changes, so a status flipped from any machine — `gh issue edit N
 interact with plain `gh` commands; start a comment with `[your-name]` to sign
 it as something other than the authenticated account.
 
+## The agent baton
+
+Assignment is one `agent` value per task — frontmatter `agent: codex` in file
+mode, an `agent:codex` label on GitHub. It names who acts *next* (implementer
+→ reviewer → owner), exactly one holder at a time; hand off by reassigning
+and logging why. Cards show the holder, the top bar grows filter pills per
+agent, and schedulers pick up their queue by filtering on their own name
+(`gh issue list --label agent:claude --label status:review`). Clear it by
+assigning "unassigned". No priorities, no milestones — the baton is the only
+routing the board has.
+
 File mode (`.board/`, the default) remains the right choice for single-machine
 repos: offline, dependency-free, git-diffable.
 
@@ -71,6 +82,7 @@ you whenever a task enters review. Done tasks can be moved into
 ## Agent skills
 
 `skills/` ships two [Agent Skills](https://agentskills.io) (`harness-init`,
-`board-enrich`) that teach coding agents — Claude Code, Codex CLI, or anything
+`grill-me`) that teach coding agents — Claude Code, Codex CLI, or anything
 else adopting the standard — to scaffold the surrounding engineering harness
-and to enrich draft tasks by interviewing you. See `skills/README.md`.
+and to grill draft tasks into implementable specs by interviewing you. See
+`skills/README.md`.

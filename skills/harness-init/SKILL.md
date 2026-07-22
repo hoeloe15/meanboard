@@ -48,10 +48,12 @@ stack — this is a method, not a paste.
    or run directly via `npx github:hoeloe15/meanboard`; skip if unavailable) and add a short
    "Task board" section to AGENTS.md: tasks are markdown files in `.board/`, frontmatter
    `status:` is the only state (draft → open → in-progress → review → done), protocol in
-   `.board/README.md`. Drafts get enriched via the `board-enrich` skill before agents may
+   `.board/README.md`. Drafts get grilled via the `grill-me` skill before agents may
    claim them; setting `review` alerts the owner through the board UI; only the owner moves
-   review → done. A task body doubles as the batch spec (GOAL / verify gate / CAP). No
-   milestones, priorities, or assignees — the board stays mean and lean. AGENTS.md also
+   review → done. A task body doubles as the batch spec (GOAL / verify gate / CAP). Assignment
+   is the single agent baton (frontmatter `agent:` / GitHub `agent:<name>` label) naming who
+   acts next — set it on handoff, log the handoff. No milestones or priorities — the board
+   stays mean and lean. AGENTS.md also
    states the concurrent-work rules: assume other agents and the owner work the repo
    simultaneously, and open every task with the start ritual — fetch and base on fresh
    origin/main, read the board for claims and in-flight work, claim the task naming your

@@ -17,7 +17,7 @@ test('serialize and parse round-trip title, status, created, and body', () => {
   const body = '\nContext with **bold**.\n\n- [ ] exact bytes\n';
   const text = serializeTask({ title:'Round trip', status:'open', created:'2026-07-20 14:02', body });
   assert.deepEqual(parseTask(text, 'round-trip.md'), {
-    id:'round-trip', title:'Round trip', status:'open', created:'2026-07-20 14:02', body
+    id:'round-trip', title:'Round trip', status:'open', agent:'', created:'2026-07-20 14:02', body
   });
 });
 
@@ -36,7 +36,7 @@ test('status-only update preserves odd frontmatter, CRLF, and body bytes', async
 test('missing frontmatter and H1 fall back safely', async t => {
   const dir = await fixture(t), raw = 'Loose notes\r\nwithout a heading\r\n';
   assert.deepEqual(parseTask(raw, 'loose.md'), {
-    id:'loose', title:'loose', status:'draft', created:'', body:raw
+    id:'loose', title:'loose', status:'draft', agent:'', created:'', body:raw
   });
   await fs.writeFile(path.join(dir, 'loose.md'), raw);
   await updateTask(dir, 'loose', { status:'open' });
@@ -118,6 +118,19 @@ test('log patches append to a created ## Log section without touching the spec',
   const text = await fs.readFile(path.join(dir, `${task.id}.md`), 'utf8');
   assert.match(text, /Spec text\n\n## Log\n\n- \*\*\d{4}-\d{2}-\d{2} \d{2}:\d{2}\*\* — claimed; branch fix\/x\n- \*\*[^\n]+\*\* — status: in-progress → review\n$/);
   await assert.rejects(updateTask(dir, task.id, { log:'  ' }), /Log entry/);
+});
+
+test('agent round-trips, updates, and clears in frontmatter', async t => {
+  const dir = await fixture(t);
+  const text = serializeTask({ title:'Handoff', status:'open', agent:'codex', created:'2026-07-22 09:00', body:'Spec\n' });
+  assert.match(text, /^---\nstatus: open\nagent: codex\ncreated: /);
+  await fs.writeFile(path.join(dir, 'handoff.md'), text);
+  assert.equal((await updateTask(dir, 'handoff', { agent:'claude' })).agent, 'claude');
+  const cleared = await updateTask(dir, 'handoff', { agent:'' });
+  assert.equal(cleared.agent, '');
+  assert.ok(!(await fs.readFile(path.join(dir, 'handoff.md'), 'utf8')).includes('agent:'));
+  assert.equal((await updateTask(dir, 'handoff', { agent:'kimi' })).agent, 'kimi');
+  await assert.rejects(updateTask(dir, 'handoff', { agent:'bad name!' }), /Agent must be/);
 });
 
 test('concurrent updates to one task are serialized, not lost', async t => {

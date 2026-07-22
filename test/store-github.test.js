@@ -133,6 +133,22 @@ test('detail carries PR body and changed files for linked PRs', async () => {
   assert.match(task.body, /· #53\*\* — opened PR: Drain gate/);
 });
 
+test('agent assignment swaps agent labels, ensures the label, and clears', async () => {
+  const state = baseState();
+  const s = await store(state);
+  const task = await s.update('7', { agent: 'claude' });
+  assert.equal(task.agent, 'claude');
+  assert.ok(state.labels.some(l => l.name === 'agent:claude'), 'agent label created');
+  const swapped = await s.update('7', { agent: 'codex' });
+  assert.equal(swapped.agent, 'codex');
+  const agentLabels = () => state.issues.find(i => i.number === 7).labels.map(l => l.name).filter(n => n.startsWith('agent:'));
+  assert.deepEqual(agentLabels(), ['agent:codex']);
+  const cleared = await s.update('7', { agent: '' });
+  assert.equal(cleared.agent, '');
+  assert.deepEqual(agentLabels(), []);
+  await assert.rejects(s.update('7', { agent: 'bad name!' }), /Agent must be/);
+});
+
 test('missing issues 404 as null/false and labels are ensured once', async () => {
   const state = baseState();
   state.labels = state.labels.slice(0, 2);

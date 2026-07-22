@@ -34,8 +34,14 @@ function card(task) {
   const node = document.createElement('article');
   node.className = 'card'; node.draggable = statuses.includes(task.status); node.tabIndex = 0; node.dataset.id = task.id;
   const title = document.createElement('h3');
-  title.textContent = task.title;
+  if (task.ref) { const ref = document.createElement('span'); ref.className = 'card-ref'; ref.textContent = task.ref; title.append(ref); }
+  title.append(task.title);
   node.append(title);
+  if (task.agent) {
+    const foot = document.createElement('div'); foot.className = 'card-foot';
+    const chip = document.createElement('span'); chip.className = 'agent-chip'; chip.textContent = task.agent;
+    foot.append(chip); node.append(foot);
+  }
   const { done, total } = checks(task.body);
   if (total) {
     const row = document.createElement('div'); row.className = 'checks';
@@ -53,13 +59,30 @@ function card(task) {
   return node;
 }
 
+let agentFilter = '';
+function renderAgentFilter() {
+  const bar = document.querySelector('#agent-filter');
+  const agents = [...new Set(tasks.map(task => task.agent).filter(Boolean))].sort();
+  if (agentFilter && !agents.includes(agentFilter)) agentFilter = '';
+  bar.hidden = !agents.length;
+  bar.replaceChildren(...(agents.length ? ['', ...agents] : []).map(name => {
+    const pill = document.createElement('button');
+    pill.className = `agent-pill${agentFilter === name ? ' active' : ''}`;
+    pill.textContent = name || 'all';
+    pill.onclick = () => { agentFilter = name; render(); };
+    return pill;
+  }));
+}
+
 function render() {
+  renderAgentFilter();
   const known = new Set(statuses);
   const before = new Map();
   for (const node of board.querySelectorAll('.card')) before.set(node.dataset.id, node.getBoundingClientRect());
   for (const section of document.querySelectorAll('.column')) {
     const status = section.dataset.status;
     let items = status ? tasks.filter(task => task.status === status) : tasks.filter(task => !known.has(task.status));
+    if (agentFilter) items = items.filter(task => task.agent === agentFilter);
     items.sort((a, b) => (a.created || '').localeCompare(b.created || '') || a.id.localeCompare(b.id));
     if (status === 'done') items.reverse();
     section.querySelector('.cards').replaceChildren(...items.map(card));
@@ -153,6 +176,10 @@ function showTask(task, preserveEdit = false) {
   if (!statuses.includes(task.status)) select.append(new Option(`? ${task.status}`, task.status));
   select.value = task.status;
   document.querySelector('#status-pill').dataset.status = task.status;
+  const agentSelect = document.querySelector('#task-agent');
+  const names = [...new Set([...tasks.map(item => item.agent), task.agent].filter(Boolean))].sort();
+  agentSelect.replaceChildren(new Option('unassigned', ''), ...names.map(name => new Option(name, name)), new Option('assign to…', '+'));
+  agentSelect.value = task.agent || '';
   document.querySelector('#task-file').textContent = task.ref || `${task.id}.md`;
   document.querySelector('#task-created').textContent = task.created ? `created ${task.created}` : '';
   document.querySelector('#archive').hidden = task.status !== 'done';
@@ -297,6 +324,15 @@ document.querySelector('#save').onclick = async () => {
   const raw = document.querySelector('#raw').value, match = /^# (.*?)(?:\r?\n|$)/m.exec(raw);
   const title = match?.[1].trim() || current.title, body = match ? raw.slice(match.index + match[0].length) : raw;
   try { await patch(current.id, { title, body }); setEditing(false); } catch (error) { toast(error.message, 'var(--c-unknown)'); }
+};
+document.querySelector('#task-agent').onchange = async event => {
+  let agent = event.target.value;
+  if (agent === '+') {
+    agent = (prompt('Agent name (e.g. claude, codex, kimi):') || '').trim();
+    if (!agent) { event.target.value = current.agent || ''; return; }
+  }
+  try { await patch(current.id, { agent, log: `agent: ${current.agent || '—'} → ${agent || '—'}` }); }
+  catch (error) { toast(error.message, 'var(--c-unknown)'); event.target.value = current.agent || ''; }
 };
 document.querySelector('#task-status').onchange = async event => {
   const to = event.target.value;
