@@ -30,7 +30,19 @@ checkout path) and the runner command per agent name. Typical runners:
   branch comment), own worktree, local gates, PR with 'closes #<n>', then
   hand to review: status:review + agent:claude + PR link comment."`
 
-On Windows with the checkout in WSL, wrap in `wsl -e bash -lc '…'`.
+## Split hosts (dispatcher on Windows, repo in WSL)
+
+Run every command — runners AND `gh` — inside the environment that holds the
+checkout, so auth, worktrees, agent CLIs, and their skills all live in one
+place:
+
+    wsl -e bash -lc "cd /home/<user>/<repo> && claude -p '/board-review' --output-format json"
+    wsl -e bash -lc "gh issue list -R <owner>/<repo> --label status:review --label agent:claude"
+
+Never mix sides: Windows `gh` and WSL `gh` can hold different auth, and
+reaching a WSL checkout through `\\wsl$\...` paths is slow and unreliable.
+The only thing that runs natively on the dispatcher's host is the
+notification delivery to the owner.
 
 ## Each tick
 
