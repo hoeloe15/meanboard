@@ -81,8 +81,9 @@ you whenever a task enters review. Done tasks can be moved into
 
 ## Agent skills
 
-`skills/` ships two [Agent Skills](https://agentskills.io) (`harness-init`,
-`grill-me`) that teach coding agents — Claude Code, Codex CLI, or anything
-else adopting the standard — to scaffold the surrounding engineering harness
-and to grill draft tasks into implementable specs by interviewing you. See
-`skills/README.md`.
+`skills/` ships [Agent Skills](https://agentskills.io) (`harness-init`,
+`grill-me`, `board-review`, `board-dispatch`) that teach agents — Claude
+Code, Codex CLI, Hermes, or anything else adopting the standard — to
+scaffold the engineering harness, grill draft tasks into implementable
+specs, work a review queue, and dispatch the whole cycle from a scheduler.
+See `skills/README.md`.
