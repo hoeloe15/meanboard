@@ -17,9 +17,11 @@ name). Empty queue → say so in one line and stop.
 
 ## Per ticket
 
-1. **Context**: read the issue body (the `- [ ]` acceptance criteria are the
-   contract) and the comment log. Find the linked PR (`closes #n` /
-   commented link); `gh pr view <p>` and `gh pr diff <p>` for the code,
+1. **Context**: `meanboard show <n>` prints the whole story in one read —
+   spec (the `- [ ]` acceptance criteria are the contract), signed activity
+   log, and every linked PR's description, changed files, and review
+   verdicts. (No meanboard on this machine? Fall back to `gh issue view` +
+   comments + `gh pr view`.) Then `gh pr diff <p>` for the actual code and
    `gh pr checks <p>` for CI state. **Never re-run CI** — judge from the
    existing results.
 2. **Judge** the diff against the acceptance criteria and the repo's code

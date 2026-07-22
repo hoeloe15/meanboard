@@ -44,6 +44,21 @@ for changes, so a status flipped from any machine — `gh issue edit N
 interact with plain `gh` commands; start a comment with `[your-name]` to sign
 it as something other than the authenticated account.
 
+## One-read context for agents
+
+`meanboard show <id>` prints a task's entire story as markdown to stdout —
+spec with acceptance criteria, the signed activity timeline, and every
+linked PR's description, changed files, and review verdicts:
+
+```sh
+meanboard show 64            # works in both file and GitHub mode
+```
+
+This is the read path for coding agents: one command instead of stitching
+`gh issue view`, comments, `gh pr view`, and reviews together. It is a view,
+not a cache — GitHub stays the single source of truth, and all writes
+(labels, comments, status) still go through `gh`.
+
 ## The agent baton
 
 Assignment is one `agent` value per task — frontmatter `agent: codex` in file

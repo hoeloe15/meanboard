@@ -26,9 +26,10 @@ checkout path) and the runner command per agent name. Typical runners:
 
 - `claude` → `cd <checkout> && claude -p "/board-review" --output-format json`
 - `codex`  → `cd <checkout> && codex exec "Work issue #<n> end to end per
-  AGENTS.md: sync origin/main, claim (status:in-progress + agent:codex +
-  branch comment), own worktree, local gates, PR with 'closes #<n>', then
-  hand to review: status:review + agent:claude + PR link comment."`
+  AGENTS.md: read the full story with 'meanboard show <n>', sync
+  origin/main, claim (status:in-progress + agent:codex + branch comment),
+  own worktree, local gates, PR with 'closes #<n>', then hand to review:
+  status:review + agent:claude + PR link comment."`
 
 ## Split hosts (dispatcher on Windows, repo in WSL)
 

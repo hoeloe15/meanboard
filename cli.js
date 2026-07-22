@@ -3,15 +3,21 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { boardReadme } from './lib/board-readme.js';
+import { formatTask } from './lib/format.js';
 import { createServer } from './lib/server.js';
 import { createFileStore, STATUSES } from './lib/store.js';
 import { createGithubStore, detectRepo, resolveToken } from './lib/store-github.js';
 
 function options(argv) {
-  const out = { command: null, port: 4949, dir: './.board', open: true, github: null };
+  const out = { command: null, id: null, port: 4949, dir: './.board', open: true, github: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === 'init' && !out.command) out.command = 'init';
+    else if (arg === 'show' && !out.command) {
+      out.command = 'show';
+      if (argv[i + 1] && !argv[i + 1].startsWith('-')) out.id = argv[++i].replace(/^#/, '');
+      else throw new Error('show needs a task id: meanboard show <id>');
+    }
     else if (arg === '--no-open') out.open = false;
     else if (arg === '--port' && argv[i + 1]) out.port = Number(argv[++i]);
     else if (arg === '--dir' && argv[i + 1]) out.dir = argv[++i];
@@ -49,7 +55,7 @@ async function buildStore(opts, cwd) {
     // No file board: fall back to GitHub mode when the repo lives there.
     let repo = null;
     try { repo = await detectRepo(); } catch { /* not a github repo */ }
-    if (repo) { console.log(`No .board/ here — using GitHub Issues for ${repo}.`); return github(repo); }
+    if (repo) { console.error(`No .board/ here — using GitHub Issues for ${repo}.`); return github(repo); }
     throw new Error('No board found. Run `meanboard init` for a file board, or use --github for Issues.');
   }
   return { store: createFileStore(boardDir), repo: path.basename(cwd) };
@@ -63,6 +69,13 @@ async function main() {
   let store, repo;
   try { ({ store, repo } = await buildStore(opts, cwd)); }
   catch (error) { console.error(`meanboard: ${error.message}`); process.exitCode = 1; return; }
+  if (opts.command === 'show') {
+    if (!store.validId(opts.id)) { console.error(`meanboard: invalid task id "${opts.id}"`); process.exitCode = 1; return; }
+    const task = store.detail ? await store.detail(opts.id) : (await store.list()).find(t => t.id === opts.id);
+    if (!task) { console.error(`meanboard: no task "${opts.id}" on the ${repo} board`); process.exitCode = 1; return; }
+    process.stdout.write(formatTask(task));
+    return;
+  }
   const tasks = await store.list();
   const counts = Object.fromEntries(STATUSES.map(s => [s, tasks.filter(t => t.status === s).length]));
   const server = await createServer({ store, repo });
